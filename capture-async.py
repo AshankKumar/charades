@@ -75,6 +75,12 @@ async def api_call_coroutine(frame_queue, stop_event):
         while not stop_event.is_set():
             if not frame_queue.empty():
                 base64_image = frame_queue.get()
+
+                # Remove stale frames
+                if len(user_messages) > 3:
+                    user_messages.pop(1)
+                    assistant_messages.pop(1)
+
                 user_messages.append(
                     {
                         "role": "user",
