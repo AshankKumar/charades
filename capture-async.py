@@ -7,7 +7,6 @@ import asyncio
 import aiohttp
 import threading
 import queue
-import json
 from PIL import Image
 from dotenv import load_dotenv
 from itertools import chain, zip_longest
@@ -77,7 +76,7 @@ async def api_call_coroutine(frame_queue, stop_event):
                 base64_image = frame_queue.get()
 
                 # Remove stale frames
-                if len(user_messages) > 3:
+                if len(user_messages) > 5:
                     user_messages.pop(1)
                     assistant_messages.pop(1)
 
@@ -99,9 +98,7 @@ async def api_call_coroutine(frame_queue, stop_event):
                 print("🤔 Is this your clue: " + last_guess)
 
                 assistant_messages.append({"role": "assistant", "content": last_guess})
-            await asyncio.sleep(3)  # Check for new frame every 3 seconds
 
-#TODO: pop old images
 def main():
     frame_queue = queue.Queue()
     stop_event = threading.Event()
