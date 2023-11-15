@@ -51,13 +51,13 @@ async def guess_clue(session, content) -> None:
     except Exception as e:
         print(f"An error occurred: {e}")
 
-def api_call_thread(frame_queue):
-    asyncio.run(api_call_coroutine(frame_queue))
+def api_call_thread(frame_queue, stop_event):
+    asyncio.run(api_call_coroutine(frame_queue, stop_event))
 
-async def api_call_coroutine(frame_queue):
+async def api_call_coroutine(frame_queue, stop_event):
     content = [{"type": "text", "text": "What am I acting out?"}]
     async with aiohttp.ClientSession() as session:
-        while True:
+        while not stop_event.is_set():
             if not frame_queue.empty():
                 base64_image = frame_queue.get()
                 content.append(
@@ -66,12 +66,13 @@ async def api_call_coroutine(frame_queue):
                         "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
                     }
                 )
-                await guess_clue(session, content)
+                # await guess_clue(session, content)
             await asyncio.sleep(3)  # Check for new frame every 3 seconds
 
 def main():
     frame_queue = queue.Queue()
-    api_thread = threading.Thread(target=api_call_thread, args=(frame_queue,))
+    stop_event = threading.Event()
+    api_thread = threading.Thread(target=api_call_thread, args=(frame_queue,stop_event,))
     api_thread.start()
 
     cap = cv2.VideoCapture(0)
@@ -99,6 +100,7 @@ def main():
                 frame_queue.put(base64_image)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
+                stop_event.set()
                 break
 
     cap.release()
