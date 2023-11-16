@@ -1,6 +1,7 @@
 import os
 import cv2
 import time
+import shutil
 import base64
 import numpy as np
 import requests
@@ -13,6 +14,12 @@ from itertools import chain, zip_longest
 load_dotenv()
 api_key = os.getenv("OPEN_AI_KEY")
 
+folder = "frames"
+
+if os.path.exists(folder):
+    shutil.rmtree(folder)
+
+os.makedirs(folder)
 
 def encode_image(frame):
     _, buffer = cv2.imencode(".jpg", frame)
@@ -57,10 +64,6 @@ def guess_clue(messages) -> str | None:
         return response["choices"][0]["message"]["content"]
     except Exception as e:
         print(f"An error occurred: {e}")
-
-
-# def api_call_thread(frame_queue, stop_event):
-#     asyncio.run(api_call_coroutine(frame_queue, stop_event))
 
 
 def api_call_coroutine(frame_queue, stop_event):
@@ -124,14 +127,19 @@ def main():
                 last_capture_time = time.time()
 
                 pil_img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
                 max_size = 250
                 ratio = max_size / max(pil_img.size)
                 new_size = tuple([int(x * ratio) for x in pil_img.size])
                 resized_img = pil_img.resize(new_size, Image.LANCZOS)
+                
                 frame = cv2.cvtColor(np.array(resized_img), cv2.COLOR_RGB2BGR)
+                
                 base64_image = encode_image(frame)
-
                 frame_queue.put(base64_image)
+
+                path = f"{folder}/frame.jpg"
+                cv2.imwrite(path, frame)
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 stop_event.set()

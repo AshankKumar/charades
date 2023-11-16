@@ -3,7 +3,6 @@
 # Original Source: https://github.com/cbh123/sloucher/blob/main/capture.py
 # --------------------------------------------------------------------
 
-
 import cv2
 import time
 from PIL import Image
