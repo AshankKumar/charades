@@ -3,8 +3,7 @@ import cv2
 import time
 import base64
 import numpy as np
-import asyncio
-import aiohttp
+import requests
 import threading
 import queue
 from PIL import Image
@@ -24,7 +23,7 @@ def interleave_lists(l1, l2):
     return [x for x in chain.from_iterable(zip_longest(l1, l2)) if x is not None]
 
 
-async def guess_clue(session, messages) -> str | None:
+def guess_clue(messages) -> str | None:
     try:
         print("🤖 Time to guess!")
 
@@ -51,59 +50,58 @@ async def guess_clue(session, messages) -> str | None:
             "max_tokens": 300,
         }
 
-        response = await session.post(
+        response = requests.post(
             "https://api.openai.com/v1/chat/completions", headers=headers, json=payload
         )
-        response = await response.json()
+        response = response.json()
         return response["choices"][0]["message"]["content"]
     except Exception as e:
         print(f"An error occurred: {e}")
 
 
-def api_call_thread(frame_queue, stop_event):
-    asyncio.run(api_call_coroutine(frame_queue, stop_event))
+# def api_call_thread(frame_queue, stop_event):
+#     asyncio.run(api_call_coroutine(frame_queue, stop_event))
 
 
-async def api_call_coroutine(frame_queue, stop_event):
+def api_call_coroutine(frame_queue, stop_event):
     user_messages = [
         {"role": "user", "content": [{"type": "text", "text": "What am I acting out?"}]}
     ]
     assistant_messages = []
     last_guess = None
-    async with aiohttp.ClientSession() as session:
-        while not stop_event.is_set():
-            if not frame_queue.empty():
-                base64_image = frame_queue.get()
+    while not stop_event.is_set():
+        if not frame_queue.empty():
+            base64_image = frame_queue.get()
 
-                # Remove stale frames
-                if len(user_messages) > 5:
-                    user_messages.pop(1)
-                    assistant_messages.pop(1)
+            # Remove stale frames
+            if len(user_messages) > 5:
+                user_messages.pop(1)
+                assistant_messages.pop(1)
 
-                user_messages.append(
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64_image}"
-                                },
-                            }
-                        ],
-                    }
-                )
-                messages = interleave_lists(user_messages, assistant_messages)
-                last_guess = await guess_clue(session, messages)
-                print("🤔 Is this your clue: " + last_guess)
+            user_messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            },
+                        }
+                    ],
+                }
+            )
+            messages = interleave_lists(user_messages, assistant_messages)
+            last_guess = guess_clue(messages)
+            print("🤔 Is this your clue: " + last_guess)
 
-                assistant_messages.append({"role": "assistant", "content": last_guess})
+            assistant_messages.append({"role": "assistant", "content": last_guess})
 
 def main():
     frame_queue = queue.Queue()
     stop_event = threading.Event()
     api_thread = threading.Thread(
-        target=api_call_thread,
+        target=api_call_coroutine,
         args=(
             frame_queue,
             stop_event,
